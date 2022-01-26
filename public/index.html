@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>Wordle Solver</title>
+  <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.1.3/morph/bootstrap.min.css'>
+  <style>
+    input { font-size: 24px !important; font-weight: bolder; text-align: center; }
+    .badge { font-size: 24px !important; user-select: none; }
+  </style>
+</head>
+<body>
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-sm-4 offset-sm-4 text-center">
+      <h3>Wordle Solver</h3>
+      <input id="in1" type="text" class="form-control mt-3" placeholder="Enter your chosen guess" oninput="makelist()" maxlength="5" autocomplete="off">
+    </div>
+  </div>
+  <div class="row mt-3">
+    <div class="buttons text-center">
+      <span id="b0" class="badge bg-light" onclick="toggle(0)"></span>
+      <span id="b1" class="badge bg-light" onclick="toggle(1)"></span>
+      <span id="b2" class="badge bg-light" onclick="toggle(2)"></span>
+      <span id="b3" class="badge bg-light" onclick="toggle(3)"></span>
+      <span id="b4" class="badge bg-light" onclick="toggle(4)"></span>
+    </div>
+  </div>
+  <hr>
+  <div class="row mt-3">
+    <div class="solution buttons text-center">
+      <h3>Solution</h3>
+      <span id="p0" class="badge bg-light">?</span>
+      <span id="p1" class="badge bg-light">?</span>
+      <span id="p2" class="badge bg-light">?</span>
+      <span id="p3" class="badge bg-light">?</span>
+      <span id="p4" class="badge bg-light">?</span>
+    </div>
+  </div>
+  <div class="row mt-3">
+    <div class="col-sm-4 offset-sm-4 text-center">
+      <hr>
+      <h3 id="solution"></h3>
+      <h5 class="mt-3">Including letters</h5>
+      <p class="letters">...</p>
+      <h5>Potential Solutions</h5>
+      <p class="solutions">...</p>
+      <h5>Try Guessing</h5>
+      <p class="guess">...</p>
+    </div>
+  </div>
+</div>
+<script src="words.js"></script>
+<script>
+  let contains = [];
+  let filterArray = [];
+  let filteredWords = JSON.parse(JSON.stringify(words));
+
+  function randomEl(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function toggle(n) {
+    const ins = document.querySelector('#in1').value.split('');
+    const el = document.querySelector(`#b`+n);
+    const cl = el.classList;
+
+    document.querySelector('#solution').innerHTML = '';
+
+    if (cl.contains('bg-light')) {
+      el.classList.remove('bg-light');
+      el.classList.add('bg-warning');
+
+      // Switch to Includes
+      if (!contains.includes(ins[n])) contains.push(ins[n]);
+      // console.log('contains', contains);
+
+    } else if (cl.contains('bg-warning')) {
+      el.classList.remove('bg-warning');
+      el.classList.add('bg-success');
+
+      // Switch to Equals
+      document.querySelector(`#p`+n).innerHTML = ins[n];
+      document.querySelector(`#p`+n).classList.remove('bg-light');
+      document.querySelector(`#p`+n).classList.add('bg-success');
+      filterArray[n] = ins[n];
+
+    } else if (cl.contains('bg-success')) {
+      el.classList.remove('bg-success');
+      el.classList.add('bg-light');
+      // filterArray[n] = null;
+
+      // Switch to Excludes
+      if (document.querySelector(`#p`+n).innerHTML === ins[n]) {
+        document.querySelector(`#p`+n).classList.remove('bg-success');
+        document.querySelector(`#p`+n).classList.add('bg-light');
+        document.querySelector(`#p`+n).innerHTML = '?';
+
+        contains = contains.filter(x => x !== ins[n]);
+        filterArray[n] = null;
+
+        // Reset list of words
+        filteredWords = JSON.parse(JSON.stringify(words));
+      }
+    }
+
+    // Do filtering
+
+    // Filter by Contains
+    if (contains.length > 0) {
+      filteredWords = filteredWords.filter(x => contains.every(y => x.includes(y)));
+    }
+
+    // Filter words where the position of the letter is equal to the position of the letter in the guess
+    if (filterArray.length > 0) {
+      filteredWords = filteredWords.filter(word => filterArray.every((letter, pos) => !letter || word[pos] === letter));
+    }
+
+    console.log('filteredWords', filteredWords);
+    if (filteredWords.length === 1) {
+      document.querySelector('#solution').innerHTML = filteredWords[0];
+    } else if (filteredWords.length < 50) {
+      document.querySelector('p.solutions').innerHTML = filteredWords.join(', ');
+    }
+
+    document.querySelector('p.letters').innerHTML = contains.length ? contains.join(', ') : '...';
+
+    // Find words in filteredWords with the fewest letters from the contains array
+    let matches = 0, match = '', prevMatches = [];
+    filteredWords.forEach(word => {
+      let containsClone = JSON.parse(JSON.stringify(contains));
+      // number of letters in the word that are also in the contains array
+      let wordLength = word.split('').filter(letter => containsClone.includes(letter)).length;
+      if (wordLength >= matches) {
+        prevMatches.push(match);
+        matches = wordLength;
+        match = word;
+      }
+    });
+
+    // Do guessing
+    if (filteredWords.length > 0) {
+      const guess = randomEl(filteredWords);
+      if (prevMatches) match = `${match} ${prevMatches.slice(0,50).join(', ')}`;
+      document.querySelector('p.guess').innerHTML = match || guess;
+    } else {
+      document.querySelector('p.guess').innerHTML = '...';
+    }
+
+  }
+
+  function makelist() {
+    const in1 = document.querySelector('#in1').value;
+
+    for (var i = 0; i < 5; i++) {
+      document.querySelector(`#b`+i).innerHTML = '';
+      const el = document.querySelector(`#b`+i);
+      if (el.classList.contains('bg-warning')) {
+        el.classList.remove('bg-warning');
+        el.classList.add('bg-light');
+      }
+    }
+
+    in1.split('').forEach((letter, i) => {
+      document.querySelector(`#b`+i).innerHTML = letter;
+    });
+  }
+  function focus() {
+    document.querySelector('#in1').focus();
+  }
+
+  setInterval(focus, 2500);
+  setTimeout(focus, 100);
+</script>
+</body>
+</html>
